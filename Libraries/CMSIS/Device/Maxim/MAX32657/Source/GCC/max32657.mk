@@ -144,11 +144,9 @@ SECURE_IMPLIB_OBJ := $(SECURE_BUILD_DIR)/secure_implib.o
 PROJ_OBJS = ${NONSECURE_CODE_OBJ}
 # PROJ_OBJS = ${SECURE_IMPLIB_OBJ}
 
-.PHONY: nonsecurecode
-nonsecurecode: $(NONSECURE_CODE_BIN)
-
-$(NONSECURE_CODE_BIN):
-# Run linker to generate 
+# Recipe to build the secure code importlib object file
+.PHONY: secure_implib_obj
+secure_implib_obj:
 	@echo ""
 	@echo "****************************************************************************"
 	@echo "* Building Secure Code and generating a CMSE importlib object file"
@@ -159,6 +157,9 @@ $(NONSECURE_CODE_BIN):
 	@echo "****************************************************************************"
 	$(MAKE) -C ${SECURE_CODE_DIR} BUILD_DIR=$(SECURE_BUILD_DIR) PROJECT=secure GEN_CMSE_IMPLIB_OBJ=1
 
+# Recipe to build the non-secure code image binary
+$(NONSECURE_CODE_BIN): secure_implib_obj
+# Run linker to generate
 	@echo ""
 	@echo "****************************************************************************"
 	@echo "* Building Non-Secure Code with generated CMSE importlib object file."
@@ -169,9 +170,6 @@ $(NONSECURE_CODE_BIN):
 	@echo "****************************************************************************"
 	@echo "* Linking Secure and Non-Secure images together."
 	@echo "****************************************************************************"
-
-.PHONY: nsobj
-nsobj: $(NONSECURE_CODE_OBJ)
 
 ${NONSECURE_CODE_OBJ}: $(LOADER_SCRIPT) ${NONSECURE_CODE_BIN}
 	@${CC} ${AFLAGS} -o ${@} -c $(LOADER_SCRIPT)
