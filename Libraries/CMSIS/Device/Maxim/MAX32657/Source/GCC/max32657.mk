@@ -94,24 +94,6 @@ SRCS += heap.c
 SRCS += system_$(TARGET_LC).c
 endif
 
-# Use proper linker files as a Secure-only vs Secure/Non-Secure-combined project.
-ifeq "$(LINKERFILE)" ""
-
-ifeq ($(TRUSTZONE),1)
-ifeq "$(MSECURITY_MODE)" "SECURE"
-LINKERFILE=$(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC/$(TARGET_LC)_s.ld
-else # MSECURITY_MODE=NONSECURE
-LINKERFILE=$(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC/$(TARGET_LC)_ns.ld
-endif # MSECURITY_MODE
-
-else # TRUSTZONE=0
-
-# Default linkerfile
-LINKERFILE ?= $(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC/$(TARGET_LC).ld
-
-endif # TRUSTZONE
-endif # LINKERFILE
-
 # Compile both Secure and Non-Secure projects and link them into a combined
 # image.
 # Configuration Variables:
@@ -124,9 +106,10 @@ ifeq "$(GEN_CMSE_IMPLIB_OBJ)" ""
 
 LOADER_SCRIPT := $(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC/nonsecure_load.S
 
+# This might be dangerous, might pick the default directory with the user being aware
 # Directory for Non-Secure code, defaults to Hello_World_TZ/NonSecure
-NONSECURE_CODE_DIR ?= $(CMSIS_ROOT)/../../Examples/$(TARGET_UC)/Hello_World_TZ/NonSecure
-SECURE_CODE_DIR ?= $(CMSIS_ROOT)/../../Examples/$(TARGET_UC)/Hello_World_TZ/Secure
+# NONSECURE_CODE_DIR ?= $(CMSIS_ROOT)/../../Examples/$(TARGET_UC)/Hello_World_TZ/NonSecure
+# SECURE_CODE_DIR ?= $(CMSIS_ROOT)/../../Examples/$(TARGET_UC)/Hello_World_TZ/Secure
 
 # Build the Secure and Non-Secure project inside of the Secure project so that
 # "make clean" will catch it automatically.
@@ -175,6 +158,7 @@ ${NONSECURE_CODE_OBJ}: $(LOADER_SCRIPT) ${NONSECURE_CODE_BIN}
 	@${CC} ${AFLAGS} -o ${@} -c $(LOADER_SCRIPT)
 
 endif # GEN_CMSE_IMPLIB_OBJ
+SECURE_BUILD_DIR := $(CURDIR)/build/build_s
 endif
 ifeq "$(MSECURITY_MODE)" "NONSECURE"
 SECURE_BUILD_DIR := $(CURDIR)/../Secure/build/build_s
@@ -184,6 +168,27 @@ PROJ_OBJS += $(SECURE_IMPLIB_OBJ)
 
 endif # MSECURITY_MODE
 endif # TRUSTZONE
+
+# Use proper linker files as a Secure-only vs Secure/Non-Secure-combined project.
+ifeq "$(LINKERFILE)" ""
+ifeq ($(TRUSTZONE),1)
+# Auto generate linkers
+COMMON_DIR=$(abspath $(SECURE_BUILD_DIR)/..)
+SECURE_PROJ_MK=$(abspath $(COMMON_DIR)/../project.mk)
+LINKER_DIR=$(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC
+LINKER_DEPS=$(LINKER_DIR)/create_linkers.py $(wildcard $(LINKER_DIR)/linker_templates/*.template) $(SECURE_PROJ_MK)
+$(COMMON_DIR)/$(TARGET_LC)_secure.ld $(COMMON_DIR)/$(TARGET_LC)_nonsecure.ld: $(LINKER_DEPS)
+	python3 $(LINKER_DIR)/create_linkers.py $(TARGET_LC) $(COMMON_DIR) $(LINKER_GEN_FLAGS)
+ifeq "$(MSECURITY_MODE)" "SECURE"
+LINKERFILE=$(COMMON_DIR)/$(TARGET_LC)_secure.ld
+else # MSECURITY_MODE=NONSECURE
+LINKERFILE=$(COMMON_DIR)/$(TARGET_LC)_nonsecure.ld
+endif # MSECURITY_MODE
+else # TRUSTZONE=0
+# Default linkerfile
+LINKERFILE ?= $(CMSIS_ROOT)/Device/Maxim/$(TARGET_UC)/Source/GCC/$(TARGET_LC).ld
+endif # TRUSTZONE
+endif # LINKERFILE
 
 ################################################################################
 

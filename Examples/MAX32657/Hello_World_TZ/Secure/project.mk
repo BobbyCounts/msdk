@@ -16,4 +16,5 @@ TRUSTZONE=1
 MSECURITY_MODE=SECURE
 
 # Add path to Non-Secure project.
+SECURE_CODE_DIR=./
 NONSECURE_CODE_DIR=../NonSecure
